@@ -3,7 +3,7 @@ from __future__ import division
 
 from collections import defaultdict, Counter
 
-import constants
+from . import constants
 
 class Vocabulary(object):
 

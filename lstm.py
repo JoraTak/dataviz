@@ -78,7 +78,7 @@ class RNNLM(object):
         self.SetParams(*args, **kwargs)
 
     @with_self_graph
-    def SetParams(self, V, H, softmax_ns=200, num_layers=1):
+    def SetParams(self, V, H, softmax_ns=200, num_layers=1,num_classes=2):
         # Model structure; these need to be fixed for a given model.
         self.V = V
         self.H = H
@@ -197,8 +197,8 @@ class RNNLM(object):
         # properly.
 
         with tf.name_scope("output_Layer"):
-            self.W_out_ = tf.Variable(tf.random_uniform([self.H, self.V], -1.0, 1.0), name="W_out")
-            self.b_out_ = tf.Variable(tf.zeros([self.V], dtype=tf.float32), name="b_out")
+            self.W_out_ = tf.Variable(tf.random_uniform([self.H, num_classes], -1.0, 1.0), name="W_out")
+            self.b_out_ = tf.Variable(tf.zeros([num_classes], dtype=tf.float32), name="b_out")
             self.logits_ = tf.add(matmul3d(self.outputs_, self.W_out_), self.b_out_, name="logits")
 
         # Loss computation (true loss, for prediction)
