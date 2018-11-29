@@ -83,6 +83,7 @@ class RNNLM(object):
         self.V = V
         self.H = H
         self.num_layers = num_layers
+        self.num_classes = num_classes
 
         # Training hyperparameters; these can be changed with feed_dict,
         # and you may want to do so during training.
@@ -197,8 +198,8 @@ class RNNLM(object):
         # properly.
 
         with tf.name_scope("output_Layer"):
-            self.W_out_ = tf.Variable(tf.random_uniform([self.H, num_classes], -1.0, 1.0), name="W_out")
-            self.b_out_ = tf.Variable(tf.zeros([num_classes], dtype=tf.float32), name="b_out")
+            self.W_out_ = tf.Variable(tf.random_uniform([self.H, self.num_classes], -1.0, 1.0), name="W_out")
+            self.b_out_ = tf.Variable(tf.zeros([self.num_classes], dtype=tf.float32), name="b_out")
             self.logits_ = tf.add(matmul3d(self.outputs_, self.W_out_), self.b_out_, name="logits")
 
         # Loss computation (true loss, for prediction)
