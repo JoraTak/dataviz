@@ -153,7 +153,7 @@ class RNNLM(object):
         self.logits_ = None
 
         # Should be the same shape as inputs_w_
-        self.target_y_ = tf.placeholder(tf.int32, [None, None], name="y")
+        self.target_y_ = tf.placeholder(tf.int32, [None], name="y")
 
         # Replace this with an actual loss function
         self.loss_ = None
@@ -203,9 +203,9 @@ class RNNLM(object):
             self.logits_ = tf.add(matmul3d(self.outputs_, self.W_out_), self.b_out_, name="logits")
 
         # Loss computation (true loss, for prediction)
-        with tf.name_scope("true_loss"):
-            self.loss_ = tf.reduce_mean(
-                tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.target_y_,logits=self.logits_))
+        #with tf.name_scope("true_loss"):
+        #    self.loss_ = tf.reduce_mean(
+        #        tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.target_y_,logits=self.logits_))
 
             
         
@@ -230,21 +230,28 @@ class RNNLM(object):
         self.train_loss_ = None
 
         #### YOUR CODE HERE ####
+
         # See hints in instructions!
 
         # Define approximate loss function.
         # Note: self.softmax_ns (i.e. k=200) is already defined; use that as the
         # number of samples.
         # Loss computation (sampled, for training)
-        with tf.name_scope("sampled_loss"):  
-
-            self.train_loss_ = tf.reduce_mean(tf.nn.sampled_softmax_loss(
-                                       weights=tf.transpose(self.W_out_),
-                                       biases=self.b_out_,
-                                       labels=tf.reshape(self.target_y_,[-1,1]),
-                                       inputs=tf.reshape(self.outputs_,[-1,self.H]),
-                                       num_sampled=self.softmax_ns,
-                                       num_classes=self.V))
+ 
+        with tf.name_scope("train_loss"):  
+            self.train_loss_ = tf.reduce_mean(
+                tf.nn.sparse_softmax_cross_entropy_with_logits(
+                    labels=self.target_y_
+                    ,logits=tf.reshape(self.logits_,[self.batch_size_,-1])))
+            
+           
+            #self.train_loss_ = tf.reduce_mean(tf.nn.sampled_softmax_loss(
+            #                           weights=tf.transpose(self.W_out_),
+            #                           biases=self.b_out_,
+            #                           labels=tf.reshape(self.target_y_,[-1,1]),
+            #                           inputs=tf.reshape(self.outputs_,[-1,self.H]),
+            #                           num_sampled=self.softmax_ns,
+            #                           num_classes=self.num_classes))
               
 
         # Define optimizer and training op

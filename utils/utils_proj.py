@@ -177,7 +177,7 @@ def preprocess_sentences(sentences, vocab, use_eos=False, emit_ids=True,
                    canonical_words)
     if not use_eos:  # add additional <s> to end if needed
         ret.append(vocab.START_ID if emit_ids else vocab.START_TOKEN)
-    return np.array(ret, dtype=(np.int32 if emit_ids else object))
+    return ret
 
 
 def load_corpus(corpus, split=0.8, V=10000, shuffle=0):
@@ -259,19 +259,18 @@ def id_lists_to_sparse_bow(id_lists, vocab_size):
                           shape=[len(id_lists), vocab_size])
     return x
 
-def rnnlm_batch_generator(ids, batch_size, max_time):
+def rnnlm_batch_generator(ids, batch_size, max_time,labels):
     """Convert ids to data-matrix form for RNN language modeling."""
     # Clip to multiple of max_time for convenience
-    clip_len = ((len(ids)-1) // batch_size) * batch_size
-    input_w = ids[:clip_len]     # current word
-    target_y = ids[1:clip_len+1]  # next word
+   # clip_len = ((len(ids)-1) // batch_size) * batch_size
+    input_w = ids     # current word
+    target_y = labels # 1 positive or 0 negative
     # Reshape so we can select columns
-    input_w = input_w.reshape([batch_size,-1])
-    target_y = target_y.reshape([batch_size,-1])
-
+    input_w = input_w.reshape([-1,max_time])
+    target_y = target_y
     # Yield batches
-    for i in range(0, input_w.shape[1], max_time):
-        yield input_w[:,i:i+max_time], target_y[:,i:i+max_time]
+    for i in range(0, input_w.shape[1],batch_size):
+        yield input_w[i:i+batch_size], target_y[i:i+batch_size]
 
 
 def build_windows(ids, N, shuffle=True):
