@@ -269,7 +269,7 @@ def rnnlm_batch_generator(ids, batch_size, max_time,labels):
     input_w = input_w.reshape([-1,max_time])
     target_y = target_y
     # Yield batches
-    for i in range(0, input_w.shape[1],batch_size):
+    for i in range(0, input_w.shape[0],batch_size):
         yield input_w[i:i+batch_size], target_y[i:i+batch_size]
 
 

@@ -114,25 +114,7 @@ class RNNLM(object):
 
     @with_self_graph
     def BuildCoreGraph(self):
-        """Construct the core RNNLM graph, needed for any use of the model.
-        This should include:
-        - Placeholders for input tensors (input_w_, initial_h_, target_y_)
-        - Variables for model parameters
-        - Tensors representing various intermediate states
-        - A Tensor for the final state (final_h_)
-        - A Tensor for the output logits (logits_), i.e. the un-normalized argument
-          of the softmax(...) function in the output layer.
-        - A scalar loss function (loss_)
-        Your loss function should be a *scalar* value that represents the
-        _average_ loss across all examples in the batch (i.e. use tf.reduce_mean,
-        not tf.reduce_sum).
-        You shouldn't include training or sampling functions here; you'll do
-        this in BuildTrainGraph and BuildSampleGraph below.
-        We give you some starter definitions for input_w_ and target_y_, as
-        well as a few other tensors that might help. We've also added dummy
-        values for initial_h_, logits_, and loss_ - you should re-define these
-        in your code as the appropriate tensors.
-        See the in-line comments for more detail.
+        """Construct the core LSTM graph.
         """
         # Input ids, with dynamic shape depending on input.
         # Should be shape [batch_size, max_time] and contain integer word indices.
@@ -164,16 +146,7 @@ class RNNLM(object):
         with tf.name_scope("max_time"):
             self.max_time_ = tf.shape(self.input_w_)[1]
 
-        # Get sequence length from input_w_.
-        # TL;DR: pass this to dynamic_rnn.
-        # This will be a vector with elements ns[i] = len(input_w_[i])
-        # You can override this in feed_dict if you want to have different-length
-        # sequences in the same batch, although you shouldn't need to for this
-        # assignment.
         self.ns_ = tf.tile([self.max_time_], [self.batch_size_, ], name="ns")
-
-        #### YOUR CODE HERE ####
-        # See hints in instructions!
 
         # Construct embedding layer
         with tf.name_scope("Embedding_Layer"):
@@ -181,102 +154,78 @@ class RNNLM(object):
             self.embed_ = tf.nn.embedding_lookup(self.W_in_, self.input_w_)
                  
 
-
         # Construct RNN/LSTM cell and recurrent layer.
         with tf.name_scope("recurrent_Layer"):            
             self.cell_ = MakeFancyRNNCell(self.H, self.dropout_keep_prob_, self.num_layers)
             self.initial_h_ = self.cell_.zero_state(self.batch_size_, tf.float32)                              
-            self.outputs_, self.final_h_ = tf.nn.dynamic_rnn(self.cell_, self.embed_,initial_state=self.initial_h_)                                    
-            
-
-
-
-                                                     
-        # Softmax output layer, over vocabulary. Just compute logits_ here.
-        # Hint: the matmul3d function will be useful here; it's a drop-in
-        # replacement for tf.matmul that will handle the "time" dimension
-        # properly.
-
+            self.outputs_, self.final_h_ = tf.nn.dynamic_rnn(self.cell_, self.embed_,initial_state=self.initial_h_)                                   
+        # Output Layer    
         with tf.name_scope("output_Layer"):
             self.W_out_ = tf.Variable(tf.random_uniform([self.H, self.num_classes], -1.0, 1.0), name="W_out")
             self.b_out_ = tf.Variable(tf.zeros([self.num_classes], dtype=tf.float32), name="b_out")
             self.logits_ = tf.add(matmul3d(self.outputs_, self.W_out_), self.b_out_, name="logits")
 
         # Loss computation (true loss, for prediction)
-        #with tf.name_scope("true_loss"):
-        #    self.loss_ = tf.reduce_mean(
-        #        tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.target_y_,logits=self.logits_))
-
+        with tf.name_scope("true_loss"):
+            self.loss_ = tf.reduce_mean(
+                tf.nn.sparse_softmax_cross_entropy_with_logits(
+                    labels=self.target_y_
+                    ,logits=tf.reshape(self.logits_,[self.batch_size_,-1])))
             
-        
 
-
-        #### END(YOUR CODE) ####
 
     @with_self_graph
     def BuildTrainGraph(self):
         """Construct the training ops.
-        You should define:
-        - train_loss_ : sampled softmax loss, for training
-        - train_step_ : a training op that can be called once per batch
-        Your loss function should be a *scalar* value that represents the
-        _average_ loss across all examples in the batch (i.e. use tf.reduce_mean,
-        not tf.reduce_sum).
         """
         # Replace this with an actual training op
         self.train_step_ = None
 
         # Replace this with an actual loss function
         self.train_loss_ = None
-
-        #### YOUR CODE HERE ####
-
-        # See hints in instructions!
-
-        # Define approximate loss function.
-        # Note: self.softmax_ns (i.e. k=200) is already defined; use that as the
-        # number of samples.
-        # Loss computation (sampled, for training)
- 
-        with tf.name_scope("train_loss"):  
-            self.train_loss_ = tf.reduce_mean(
-                tf.nn.sparse_softmax_cross_entropy_with_logits(
-                    labels=self.target_y_
-                    ,logits=tf.reshape(self.logits_,[self.batch_size_,-1])))
             
-           
-            #self.train_loss_ = tf.reduce_mean(tf.nn.sampled_softmax_loss(
-            #                           weights=tf.transpose(self.W_out_),
-            #                           biases=self.b_out_,
-            #                           labels=tf.reshape(self.target_y_,[-1,1]),
-            #                           inputs=tf.reshape(self.outputs_,[-1,self.H]),
-            #                           num_sampled=self.softmax_ns,
-            #                           num_classes=self.num_classes))
-              
+            
+        with tf.name_scope('predictions'):
+            self.predictions_ = tf.contrib.layers.fully_connected(self.outputs_[:, -1], 1, activation_fn=tf.sigmoid)
 
+        with tf.name_scope('train_loss_'):
+            self.train_loss_ = tf.losses.mean_squared_error(
+                tf.reshape(self.target_y_,(1,-1)), tf.reshape(self.predictions_,(1,-1)))            
+                  
         # Define optimizer and training op
         self.optimizer_ = tf.train.AdamOptimizer(learning_rate=self.learning_rate_)
         self.train_step_ = self.optimizer_.minimize(self.train_loss_)
 
+        with tf.name_scope('validation'):
+            correct_pred = tf.equal(tf.cast(tf.round(self.predictions_), tf.int32), self.target_y_)
+            self.accuracy_ = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 
-        #### END(YOUR CODE) ####
-
-    @with_self_graph
-    def BuildSamplerGraph(self):
-        """Construct the sampling ops.
-        You should define pred_samples_ to be a Tensor of integer indices for
-        sampled predictions for each batch element, at each timestep.
-        Hint: use tf.multinomial, along with a couple of calls to tf.reshape
-        """
-        # Replace with a Tensor of shape [batch_size, max_time, num_samples = 1]
-        #self.pred_samples_ = None
-
-        #### YOUR CODE HERE ####
-
-        self.pred_samples_ = tf.reshape(
-                              tf.multinomial(
-                                  logits=tf.reshape(self.logits_,[self.batch_size_,self.V]),
-                                  num_samples=1),[-1,self.max_time_,1])
+       
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
 
-        #### END(YOUR CODE) ####
