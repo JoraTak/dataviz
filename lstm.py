@@ -158,7 +158,8 @@ class RNNLM(object):
         with tf.name_scope("recurrent_Layer"):            
             self.cell_ = MakeFancyRNNCell(self.H, self.dropout_keep_prob_, self.num_layers)
             self.initial_h_ = self.cell_.zero_state(self.batch_size_, tf.float32)                              
-            self.outputs_, self.final_h_ = tf.nn.dynamic_rnn(self.cell_, self.embed_,initial_state=self.initial_h_)                                   
+            self.outputs_, self.final_h_ = tf.nn.dynamic_rnn(self.cell_, self.embed_,initial_state=self.initial_h_) 
+        """
         # Output Layer    
         with tf.name_scope("output_Layer"):
             self.W_out_ = tf.Variable(tf.random_uniform([self.H, self.num_classes], -1.0, 1.0), name="W_out")
@@ -172,33 +173,32 @@ class RNNLM(object):
                     labels=self.target_y_
                     ,logits=tf.reshape(self.logits_,[self.batch_size_,-1])))
             
-
+        """
 
     @with_self_graph
     def BuildTrainGraph(self):
         """Construct the training ops.
         """
-        # Replace this with an actual training op
-        self.train_step_ = None
-
-        # Replace this with an actual loss function
-        self.train_loss_ = None
-            
+           
             
         with tf.name_scope('predictions'):
             self.predictions_ = tf.contrib.layers.fully_connected(self.outputs_[:, -1], 1, activation_fn=tf.sigmoid)
 
+#        with tf.name_scope('predictions'):
+#            self.predictions_ = tf.contrib.layers.fully_connected(self.outputs_[:, -1], 1, #activation_fn=tf.sigmoid,trainable=True)
+
         with tf.name_scope('train_loss_'):
             self.train_loss_ = tf.losses.mean_squared_error(
-                tf.reshape(self.target_y_,(1,-1)), tf.reshape(self.predictions_,(1,-1)))            
+                tf.reshape(self.target_y_,(1,-1)), tf.reshape(self.predictions_,(1,-1)))    
+            tf.summary.scalar('train_loss_', self.train_loss_)
                   
         # Define optimizer and training op
-        self.optimizer_ = tf.train.AdamOptimizer(learning_rate=self.learning_rate_)
-        self.train_step_ = self.optimizer_.minimize(self.train_loss_)
-
-        with tf.name_scope('validation'):
-            correct_pred = tf.equal(tf.cast(tf.round(self.predictions_), tf.int32), self.target_y_)
-            self.accuracy_ = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+        self.optimizer_ = tf.train.AdamOptimizer(learning_rate=self.learning_rate_).minimize(self.train_loss_)
+        
+        with tf.name_scope('accuracy'): 
+            predictions = tf.cast(tf.round(self.predictions_), tf.int32)
+            self.num_equal_ = tf.equal(predictions, tf.reshape(self.target_y_,(-1,1)))
+            self.accuracy_ = tf.reduce_mean(tf.cast(self.num_equal_, tf.float32))
 
        
     
